@@ -1,0 +1,259 @@
+
+
+
+-- ============================================
+-- COMPLETE SQL PRACTICE DATABASE
+-- ============================================
+-- This file contains all the tables and data you need to practice SQL
+-- Copy and paste sections into your SQL environment (PostgreSQL, MySQL, etc.)
+
+-- ============================================
+-- SECTION 1: CREATE TABLES
+-- ============================================
+
+-- Drop tables if they exist (for clean restart)
+DROP TABLE IF EXISTS order_items;
+DROP TABLE IF EXISTS orders;
+DROP TABLE IF EXISTS products;
+DROP TABLE IF EXISTS categories;
+DROP TABLE IF EXISTS customers;
+DROP TABLE IF EXISTS employees;
+DROP TABLE IF EXISTS departments;
+
+SELECT * FROM employees;
+
+-- Create departments table
+CREATE TABLE departments (
+                             id SERIAL PRIMARY KEY,
+                             dept_name VARCHAR(50) NOT NULL,
+                             location VARCHAR(50)
+);
+
+-- Create employees table
+CREATE TABLE employees (
+                           id SERIAL PRIMARY KEY,
+                           first_name VARCHAR(50) NOT NULL,
+                           last_name VARCHAR(50) NOT NULL,
+                           email VARCHAR(100),
+                           department_id INTEGER REFERENCES departments(id),
+                           manager_id INTEGER REFERENCES employees(id),
+                           salary DECIMAL(10, 2),
+                           hire_date DATE
+);
+
+-- Create categories table
+CREATE TABLE categories (
+                            id SERIAL PRIMARY KEY,
+                            category_name VARCHAR(50) NOT NULL,
+                            description TEXT
+);
+
+-- Create products table
+CREATE TABLE products (
+                          id SERIAL PRIMARY KEY,
+                          product_name VARCHAR(100) NOT NULL,
+                          category_id INTEGER REFERENCES categories(id),
+                          price DECIMAL(10, 2) NOT NULL,
+                          stock_quantity INTEGER DEFAULT 0
+);
+
+-- Create customers table
+CREATE TABLE customers (
+                           id SERIAL PRIMARY KEY,
+                           first_name VARCHAR(50) NOT NULL,
+                           last_name VARCHAR(50) NOT NULL,
+                           email VARCHAR(100),
+                           city VARCHAR(50),
+                           country VARCHAR(50),
+                           registration_date DATE
+);
+
+-- Create orders table
+CREATE TABLE orders (
+                        id SERIAL PRIMARY KEY,
+                        customer_id INTEGER REFERENCES customers(id),
+                        order_date DATE NOT NULL,
+                        total_amount DECIMAL(10, 2),
+                        status VARCHAR(20)
+);
+
+-- Create order_items table
+CREATE TABLE order_items (
+                             id SERIAL PRIMARY KEY,
+                             order_id INTEGER REFERENCES orders(id),
+                             product_id INTEGER REFERENCES products(id),
+                             quantity INTEGER NOT NULL,
+                             unit_price DECIMAL(10, 2) NOT NULL
+);
+
+-- ============================================
+-- SECTION 2: INSERT SAMPLE DATA
+-- ============================================
+
+-- Insert departments
+INSERT INTO departments (dept_name, location) VALUES
+                                                  ('Sales', 'New York'),
+                                                  ('IT', 'San Francisco'),
+                                                  ('Marketing', 'Chicago'),
+                                                  ('HR', 'Boston'),
+                                                  ('Finance', 'New York');
+
+-- Insert employees
+INSERT INTO employees (first_name, last_name, email, department_id, manager_id, salary, hire_date) VALUES
+                                                                                                       ('John', 'Smith', 'john.smith@company.com', 1, NULL, 75000, '2020-01-15'),
+                                                                                                       ('Sarah', 'Johnson', 'sarah.j@company.com', 1, 1, 55000, '2020-03-20'),
+                                                                                                       ('Mike', 'Williams', 'mike.w@company.com', 1, 1, 52000, '2021-06-10'),
+                                                                                                       ('Emily', 'Brown', 'emily.b@company.com', 2, NULL, 85000, '2019-05-12'),
+                                                                                                       ('David', 'Jones', 'david.j@company.com', 2, 4, 65000, '2020-08-01'),
+                                                                                                       ('Lisa', 'Garcia', 'lisa.g@company.com', 2, 4, 68000, '2021-02-15'),
+                                                                                                       ('James', 'Miller', 'james.m@company.com', 3, NULL, 70000, '2020-11-05'),
+                                                                                                       ('Jennifer', 'Davis', 'jennifer.d@company.com', 3, 7, 58000, '2021-04-20'),
+                                                                                                       ('Robert', 'Rodriguez', 'robert.r@company.com', 4, NULL, 72000, '2019-09-10'),
+                                                                                                       ('Maria', 'Martinez', 'maria.m@company.com', 5, NULL, 78000, '2020-02-28'),
+                                                                                                       ('William', 'Lopez', 'william.l@company.com', 5, 10, 61000, '2021-07-12'),
+                                                                                                       ('Patricia', 'Gonzalez', 'patricia.g@company.com', 1, 1, 49000, '2022-01-08'),
+                                                                                                       ('Thomas', 'Wilson', 'thomas.w@company.com', 2, 4, 63000, '2021-09-15'),
+                                                                                                       ('Linda', 'Anderson', 'linda.a@company.com', 3, 7, 54000, '2022-03-01');
+
+-- Insert categories
+INSERT INTO categories (category_name, description) VALUES
+                                                        ('Electronics', 'Electronic devices and gadgets'),
+                                                        ('Clothing', 'Apparel and fashion items'),
+                                                        ('Books', 'Physical and digital books'),
+                                                        ('Home & Garden', 'Home improvement and garden supplies'),
+                                                        ('Sports', 'Sports equipment and accessories'),
+                                                        ('Toys', 'Toys and games for all ages');
+
+-- Insert products
+INSERT INTO products (product_name, category_id, price, stock_quantity) VALUES
+                                                                            ('Laptop Pro 15', 1, 1299.99, 45),
+                                                                            ('Wireless Mouse', 1, 29.99, 150),
+                                                                            ('USB-C Cable', 1, 12.99, 200),
+                                                                            ('Smartphone X', 1, 899.99, 80),
+                                                                            ('Bluetooth Headphones', 1, 79.99, 120),
+                                                                            ('Men T-Shirt', 2, 19.99, 300),
+                                                                            ('Women Jeans', 2, 49.99, 180),
+                                                                            ('Winter Jacket', 2, 89.99, 95),
+                                                                            ('Running Shoes', 2, 69.99, 160),
+                                                                            ('SQL Mastery Book', 3, 39.99, 75),
+                                                                            ('Python Programming', 3, 44.99, 60),
+                                                                            ('Data Science Guide', 3, 54.99, 50),
+                                                                            ('Garden Hose', 4, 24.99, 85),
+                                                                            ('LED Light Bulbs', 4, 15.99, 250),
+                                                                            ('Power Drill', 4, 79.99, 40),
+                                                                            ('Yoga Mat', 5, 29.99, 110),
+                                                                            ('Basketball', 5, 24.99, 95),
+                                                                            ('Tennis Racket', 5, 89.99, 65),
+                                                                            ('Board Game Classic', 6, 34.99, 140),
+                                                                            ('Building Blocks Set', 6, 49.99, 100);
+
+-- Insert customers
+INSERT INTO customers (first_name, last_name, email, city, country, registration_date) VALUES
+                                                                                           ('Alice', 'Cooper', 'alice.cooper@email.com', 'New York', 'USA', '2022-01-15'),
+                                                                                           ('Bob', 'Taylor', 'bob.taylor@email.com', 'Los Angeles', 'USA', '2022-02-20'),
+                                                                                           ('Charlie', 'Evans', 'charlie.evans@email.com', 'Chicago', 'USA', '2022-03-10'),
+                                                                                           ('Diana', 'White', 'diana.white@email.com', 'Houston', 'USA', '2022-04-05'),
+                                                                                           ('Edward', 'Harris', 'edward.harris@email.com', 'Phoenix', 'USA', '2022-05-12'),
+                                                                                           ('Fiona', 'Clark', 'fiona.clark@email.com', 'Philadelphia', 'USA', '2022-06-08'),
+                                                                                           ('George', 'Lewis', 'george.lewis@email.com', 'San Antonio', 'USA', '2022-07-22'),
+                                                                                           ('Helen', 'Walker', 'helen.walker@email.com', 'San Diego', 'USA', '2022-08-14'),
+                                                                                           ('Ivan', 'Hall', 'ivan.hall@email.com', 'Dallas', 'USA', '2022-09-03'),
+                                                                                           ('Julia', 'Allen', 'julia.allen@email.com', 'San Jose', 'USA', '2022-10-17'),
+                                                                                           ('Kevin', 'Young', 'kevin.young@email.com', 'Austin', 'USA', '2022-11-25'),
+                                                                                           ('Laura', 'King', 'laura.king@email.com', 'Jacksonville', 'USA', '2023-01-09'),
+                                                                                           ('Michael', 'Wright', 'michael.wright@email.com', 'London', 'UK', '2023-02-14'),
+                                                                                           ('Nancy', 'Scott', 'nancy.scott@email.com', 'Manchester', 'UK', '2023-03-20'),
+                                                                                           ('Oliver', 'Green', 'oliver.green@email.com', 'Toronto', 'Canada', '2023-04-11');
+
+-- Insert orders
+INSERT INTO orders (customer_id, order_date, total_amount, status) VALUES
+                                                                       (1, '2023-01-20', 1329.98, 'Delivered'),
+                                                                       (2, '2023-01-22', 899.99, 'Delivered'),
+                                                                       (3, '2023-02-05', 159.96, 'Delivered'),
+                                                                       (1, '2023-02-10', 89.99, 'Delivered'),
+                                                                       (4, '2023-02-15', 294.97, 'Delivered'),
+                                                                       (5, '2023-03-01', 1379.98, 'Shipped'),
+                                                                       (6, '2023-03-05', 139.98, 'Delivered'),
+                                                                       (2, '2023-03-12', 54.99, 'Delivered'),
+                                                                       (7, '2023-03-20', 419.96, 'Delivered'),
+                                                                       (8, '2023-04-02', 229.97, 'Shipped'),
+                                                                       (9, '2023-04-08', 79.99, 'Processing'),
+                                                                       (3, '2023-04-15', 99.98, 'Delivered'),
+                                                                       (10, '2023-04-22', 1299.99, 'Delivered'),
+                                                                       (11, '2023-05-01', 169.97, 'Shipped'),
+                                                                       (12, '2023-05-10', 579.97, 'Delivered'),
+                                                                       (4, '2023-05-18', 89.99, 'Delivered'),
+                                                                       (13, '2023-05-25', 339.96, 'Processing'),
+                                                                       (14, '2023-06-03', 124.98, 'Delivered'),
+                                                                       (15, '2023-06-12', 899.99, 'Shipped'),
+                                                                       (1, '2023-06-20', 249.97, 'Delivered');
+
+-- Insert order_items
+INSERT INTO order_items (order_id, product_id, quantity, unit_price) VALUES
+-- Order 1
+(1, 1, 1, 1299.99),
+(1, 2, 1, 29.99),
+-- Order 2
+(2, 4, 1, 899.99),
+-- Order 3
+(3, 5, 2, 79.99),
+-- Order 4
+(4, 8, 1, 89.99),
+-- Order 5
+(5, 6, 3, 19.99),
+(5, 7, 1, 49.99),
+(5, 9, 1, 69.99),
+(5, 16, 2, 29.99),
+-- Order 6
+(6, 1, 1, 1299.99),
+(6, 5, 1, 79.99),
+-- Order 7
+(7, 10, 1, 39.99),
+(7, 11, 1, 44.99),
+(7, 12, 1, 54.99),
+-- Order 8
+(8, 12, 1, 54.99),
+-- Order 9
+(9, 6, 5, 19.99),
+(9, 17, 4, 24.99),
+(9, 19, 3, 34.99),
+-- Order 10
+(10, 9, 2, 69.99),
+(10, 18, 1, 89.99),
+-- Order 11
+(11, 5, 1, 79.99),
+-- Order 12
+(12, 2, 1, 29.99),
+(12, 3, 2, 12.99),
+(12, 14, 1, 15.99),
+(12, 16, 1, 29.99),
+-- Order 13
+(13, 1, 1, 1299.99),
+-- Order 14
+(14, 9, 1, 69.99),
+(14, 16, 2, 29.99),
+(14, 17, 1, 24.99),
+-- Order 15
+(15, 6, 10, 19.99),
+(15, 7, 3, 49.99),
+(15, 8, 2, 89.99),
+-- Order 16
+(16, 8, 1, 89.99),
+-- Order 17
+(17, 1, 1, 1299.99),
+(17, 2, 2, 29.99),
+-- Order 18
+(18, 10, 1, 39.99),
+(18, 11, 1, 44.99),
+(18, 20, 1, 49.99),
+-- Order 19
+(19, 4, 1, 899.99),
+-- Order 20
+(20, 15, 2, 79.99),
+(20, 18, 1, 89.99);
+
+
+
+
+
+
