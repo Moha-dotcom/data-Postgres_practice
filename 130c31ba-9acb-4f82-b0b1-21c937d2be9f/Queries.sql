@@ -1,3 +1,48 @@
+
+-- BEFORE Implementing Indexing
+-- Planning Time: 0.194 ms
+-- Execution Time: 40.596 ms
+
+-- Here i have been trying to turn of the index scanning but enable_indexscan just turns of B-tree
+-- enable_indexscan only disables regular B-tree index scans, not bitmap index scans.
+SET enable_indexscan = OFF;
+-- Turning of bitMapscanner
+SET enable_indexscan = OFF;    -- disables regular B-tree index scans
+SET enable_bitmapscan = OFF;   -- disables bitmap index scans
+SET enable_tidscan = OFF;      -- disables TID (tuple ID) scans
+--- Execution Time: 124.483 ms Before using Index
+EXPLAIN ANALYZE
+SELECT customer_id, status, total_amount
+FROM orders
+WHERE customer_id = 1
+  AND status = 'Delivered';
+
+
+-- CREATING INDEX TO OPTIMIZE QUERY TIME
+
+CREATE INDEX idx_covering_customer_status_total
+    ON orders(customer_id, status);
+
+-- DROP INDEX idx_covering_customer_status_total
+ DROP INDEX idx_covering_customer_status_total;
+
+ --- After INdexing
+-- Index Only Scan using idx_covering_customer_status_total on orders o  (cost=10000000000.43..10000001103.23 rows=46940 width=13) (actual time=0.027..12.560 rows=46676 loops=1)
+-- Index Cond: ((customer_id = 1) AND (status = 'Delivered'::text))
+-- Heap Fetches: 0
+-- Planning Time: 0.114 ms
+-- Execution Time: 15.501 ms
+
+
+EXPLAIN ANALYZE
+SELECT o.customer_id, o.status FROM orders o
+WHERE customer_id  = 1
+  AND status = 'Delivered';
+
+
+
+
+
 -- ========== EXERCISE 1.1: Basic SELECT ==========
 SELECT * FROM customers;
 SELECT customers.first_name, customers.email FROM customers;
@@ -1259,7 +1304,10 @@ SELECT * FROM orders WHERE id = 1;
 EXPLAIN ANALYZE
 SELECT * FROM orders WHERE id = 1;
 
--- SET enable_indexscan = ON;
 
--- DROP INDEX find_by_id_king_23;
--- CREATE INDEX find_by_id_king_23 ON orders USING hash(id);
+
+DROP INDEX find_by_id_king_23;
+CREATE INDEX find_by_id_king_23 ON orders USING hash(id);
+
+
+
