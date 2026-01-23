@@ -1,4 +1,148 @@
 
+CREATE OR REPLACE FUNCTION sell_product(p_product_id INT, p_qty INT)
+    RETURNS BOOLEAN AS $$
+BEGIN
+    UPDATE products
+    SET stock_quantity = stock_quantity - p_qty
+    WHERE id = p_product_id
+      AND stock_quantity >= p_qty;
+
+    IF FOUND THEN
+        RETURN TRUE; -- success
+    ELSE
+        RETURN FALSE; -- out of stock
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+
+SELECT * FROM sell_product(2, 1);
+
+SELECT * FROM products WHERE id = 2;
+
+UPDATE products
+SET stock_quantity = stock_quantity - 32
+WHERE id = 2;
+
+
+
+BEGIN;
+SELECT stock_quantity FROM products WHERE id = 2;
+-- sees: 5
+
+BEGIN;
+UPDATE products
+SET stock_quantity = stock_quantity - 1
+WHERE id = 2;
+COMMIT;
+
+BEGIN;
+SELECT products.product_name, stock_quantity FROM products WHERE id = 2;
+
+UPDATE products
+SET stock_quantity = stock_quantity - 1
+WHERE id = 2
+ AND stock_quantity >=1;
+COMMIT;
+BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SELECT products.product_name, stock_quantity FROM products WHERE id = 2;
+
+COMMIT;
+
+UPDATE products
+SET stock_quantity = stock_quantity + 1
+WHERE id = 2;
+
+
+
+-- Transaction 1
+BEGIN TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+
+SELECT stock_quantity FROM products WHERE id = 2;
+-- PAUSE here (do not commit)
+-- Transaction 2
+BEGIN TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+
+UPDATE products
+SET stock_quantity = stock_quantity - 1
+WHERE id = 2;
+
+COMMIT;
+
+UPDATE products
+SET stock_quantity = stock_quantity - 1
+WHERE id = 2;
+
+COMMIT;  -- ❌ THIS MAY FAIL with "could not serialize access ..."
+
+
+
+
+
+
+
+
+
+
+
+
+SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+-- Session 1
+BEGIN TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+
+-- Lock row first
+SELECT stock_quantity
+FROM products
+WHERE id = 1
+    FOR UPDATE;
+
+-- Apply stock change
+UPDATE products
+SET stock_quantity = stock_quantity - 2
+WHERE id = 1;
+
+COMMIT;
+
+BEGIN  TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+
+SELECT stock_quantity FROM products WHERE id = 1;
+-- sees: 5
+
+UPDATE products
+SET stock_quantity = stock_quantity - 1
+WHERE id = 1;
+COMMIT;
+
+UPDATE products
+SET stock_quantity = stock_quantity - 1
+WHERE id = 1;
+
+UPDATE products SET stock_quantity = 1 WHERE id = 1;
+
+
+
+
+BEGIN ;
+SELECT * FROM orders WHERE customer_id = 1
+COMMIT;
+
+
+BEGIN ;
+UPDATE ORDERS SET total_amount = 1900 WHERE id = 1;
+SELECT * FROM ORDERS WHERE ID = 1;
+COMMIT;
+
+
+-- Session 1
+BEGIN;
+DELETE FROM order_items WHERE product_id = 2;
+
+-- Session 2
+SELECT * FROM order_items WHERE product_id = 2; -- sees remaining committed rows
+
+
+
+
 -- BEFORE Implementing Indexing
 -- Planning Time: 0.194 ms
 -- Execution Time: 40.596 ms
@@ -12,16 +156,18 @@ SET enable_bitmapscan = OFF;   -- disables bitmap index scans
 SET enable_tidscan = OFF;      -- disables TID (tuple ID) scans
 --- Execution Time: 124.483 ms Before using Index
 EXPLAIN ANALYZE
-SELECT customer_id, status, total_amount
+SELECT customer_id, status
 FROM orders
 WHERE customer_id = 1
   AND status = 'Delivered';
+
+-- Execution Time: 153.814 ms
 
 
 -- CREATING INDEX TO OPTIMIZE QUERY TIME
 
 CREATE INDEX idx_covering_customer_status_total
-    ON orders(customer_id, status);
+    ON orders(customer_id, status, total_amount);
 
 -- DROP INDEX idx_covering_customer_status_total
  DROP INDEX idx_covering_customer_status_total;
@@ -35,9 +181,10 @@ CREATE INDEX idx_covering_customer_status_total
 
 
 EXPLAIN ANALYZE
-SELECT o.customer_id, o.status FROM orders o
+SELECT o.customer_id, o.status, o.total_amount FROM orders o
 WHERE customer_id  = 1
-  AND status = 'Delivered';
+  AND status = 'Delivered'
+  AND total_amount > 1200;
 
 
 
