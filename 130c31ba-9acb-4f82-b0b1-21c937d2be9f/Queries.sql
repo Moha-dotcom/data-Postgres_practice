@@ -1,3 +1,116 @@
+SELECT stock_quantity FROM products WHERE id = 2;
+
+SELECT * FROM orders;
+
+
+CREATE FUNCTION buy_product(p_id INT, quantity INT)
+    RETURNS BOOLEAN AS $$
+BEGIN
+
+
+    UPDATE products
+    SET stock_quantity = stock_quantity - quantity
+    WHERE id = p_id AND stock_quantity >= quantity returning *;
+
+
+    RETURN FOUND;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP FUNCTION buy_product(p_id INT, quantity INT);
+
+BEGIN;
+
+-- Reduce stock for a product only if enough quantity exists
+UPDATE products
+SET stock_quantity = stock_quantity - 2
+WHERE id = 1
+  AND stock_quantity >= 2;
+
+-- Create order
+INSERT INTO orders(customer_id, order_date, total_amount, status)
+VALUES (1, CURRENT_DATE, 129.98, 'Processing');
+
+-- Insert order items
+INSERT INTO order_items(order_id, product_id, quantity, unit_price)
+VALUES (currval('orders_id_seq'), 1, 2, 64.99);
+
+COMMIT;
+
+UPDATE products
+SET stock_quantity = stock_quantity + 1
+WHERE id = 1;
+
+
+
+--- Row Level Locking ( This prevents From two Different Sessions Updating the same row
+CREATE OR REPLACE FUNCTION place_order(
+    p_customer_id INT,
+    p_product_id INT,
+    p_qty INT,
+    p_total NUMERIC
+)
+    RETURNS TABLE (
+                      order_id INT,
+                      customer_id INT,
+                      order_date DATE,
+                      total_amount NUMERIC,
+                      status VARCHAR
+                  )
+AS $$
+BEGIN
+    -- 1️⃣ Update stock (fully qualified)
+    UPDATE products p
+    SET stock_quantity = p.stock_quantity - p_qty
+    WHERE p.id = p_product_id
+      AND p.stock_quantity >= p_qty;
+    --- If the quanity is low return 'Not Enough Stock '
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Not enough stock';
+    END IF;
+
+    -- 2️⃣ Insert order and return it
+    RETURN QUERY
+        INSERT INTO orders (customer_id, order_date, total_amount, status)
+            VALUES (p_customer_id, CURRENT_DATE, p_total, 'Processing')
+            RETURNING orders.id, orders.customer_id, orders.order_date, orders.total_amount, orders.status;
+
+END;
+$$ LANGUAGE plpgsql;
+
+
+DROP FUNCTION place_order(p_customer_id INT, p_product_id INT, p_qty INT, p_total NUMERIC)
+
+SELECT place_order(2, 1, 1, 93)
+
+
+
+SELECT * FROM products
+WHERE id = 1;
+
+
+
+
+--- Buy Product Function
+-- Concepts used: transaction, atomicity, consistency.
+CREATE FUNCTION buy_product(p_id INT, quantity INT)
+    RETURNS BOOLEAN AS $$
+BEGIN
+
+
+    UPDATE products
+    SET stock_quantity = stock_quantity - quantity
+    WHERE id = p_id AND stock_quantity >= quantity;
+
+    RETURN FOUND;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP FUNCTION buy_product(p_id INT, quantity INT);
+
+select buy_product(2, 1);
+
+
 -- Transaction 2
 -- BEGIN TRANSACTION ISOLATION LEVEL SERIALIZABLE;
 --
@@ -7,6 +120,9 @@
 --
 --
 -- COMMIT;
+
+---
+
 
 SELECT *,
        CASE
@@ -45,6 +161,14 @@ WITH stock_status AS (
 SELECT status, COUNT(*) AS count_per_status
 FROM stock_status
 GROUP BY status;
+
+\set ordered_quantity 3;
+BEGIN;
+SELECT stock_quantity FROM products WHERE id = 2;
+UPDATE products SET stock_quantity = stock_quantity - :ordered_quantity
+WHERE id = 2 AND stock_quantity >= :ordered_quantity;
+COMMIT ;
+
 
 
 
