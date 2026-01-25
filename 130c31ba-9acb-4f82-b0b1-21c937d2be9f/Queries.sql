@@ -1,3 +1,81 @@
+-- 1️⃣ Create parent partitioned table first
+CREATE TABLE orders_2018_partition (
+                                       id SERIAL,
+                                       customer_id INTEGER REFERENCES customers(id),
+                                       order_date DATE NOT NULL,
+                                       total_amount DECIMAL(10,2),
+                                       status VARCHAR(20),
+                                       PRIMARY KEY (id, order_date)  -- include partition column
+) PARTITION BY RANGE (order_date);
+-- -- Copying data to partitioned table
+INSERT INTO orders_2018_partition  (id, customer_id, order_date, total_amount, status)
+SELECT id, customer_id, order_date, total_amount, status
+FROM orders
+WHERE order_date >= '2018-01-01' AND order_date < '2019-01-01';
+
+DROP table orders_2018
+-- 2️⃣ Create partitions
+CREATE TABLE orders_2018
+    PARTITION OF orders_2018_partition
+        FOR VALUES FROM ('2018-01-01') TO ('2019-01-01');
+
+DROP table orders_2018;
+-- 3️⃣ Create indexes on the partition if needed
+CREATE INDEX idx_orders_2018_order_date
+    ON orders_2018 (id, order_date);
+DROP index idx_orders_2018_order_date;
+
+-- Index Scan using find_by_id_king_23 on orders  (cost=0.00..8.02 rows=1 width=27) (actual time=0.052..0.053 rows=1 loops=1)
+--   Index Cond: (id = 4355)
+--   Filter: (EXTRACT(year FROM order_date) = '2018'::numeric)
+-- Planning Time: 0.140 ms
+-- Execution Time: 0.073 ms
+--
+
+
+--- Execution Time: 0.071 ms  BEFORE Indexing
+-- Planning Time: 0.210 ms
+-- Execution Time: 0.051 ms
+
+-- Planning Time: 0.062 ms
+-- Execution Time: 36.835 ms
+
+
+EXPLAIN ANALYSE
+SELECT id, order_date FROM orders_2018
+WHERE order_date >= '2018-11-2';
+-- Seq Scan on orders  (cost=0.00..34707.20 rows=2000020 width=27) (actual time=0.012..399.303 rows=2000045 loops=1)
+-- Planning Time: 0.078 ms
+-- Execution Time: 440.497 ms
+
+-- Planning Time: 0.214 ms
+-- Execution Time: 3.027 ms
+--With Index
+
+-- Planning Time: 0.836 ms
+-- Execution Time: 185.333 ms
+-- Without Indexing
+
+EXPLAIN ANALYSE
+SELECT  id, order_date  FROM orders
+WHERE order_date = '2018-11-2';
+-- Seq Scan on orders  (cost=0.00..39707.25 rows=1698899 width=8) (actual time=0.050..391.905 rows=1694918 loops=1)
+--   Filter: (order_date >= '2018-11-02'::date)
+--   Rows Removed by Filter: 305127
+-- Planning Time: 0.126 ms
+-- Execution Time: 433.072 ms
+
+
+CREATE index idx_orders_order_date ON
+    orders( order_date);
+DROP index idx_orders_order_date;
+
+
+
+--- Execution Time: 0.071 ms  AFTER Indexing
+
+
+
 SELECT stock_quantity FROM products WHERE id = 2;
 
 SELECT * FROM orders;
