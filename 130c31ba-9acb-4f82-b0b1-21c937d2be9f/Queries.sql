@@ -1,3 +1,66 @@
+-- Transaction 2
+-- BEGIN TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+--
+-- UPDATE products
+-- SET stock_quantity = stock_quantity + 2
+-- WHERE id = 2
+--
+--
+-- COMMIT;
+
+SELECT *,
+       CASE
+           WHEN stock_quantity < 1 THEN 'Restock'
+           ELSE 'In Stock'
+           END AS stock_status
+FROM products;
+
+
+
+
+WITH stock_count AS (
+    SELECT id, product_name ,
+           CASE
+               WHEN products.stock_quantity < 1 THEN 'Restock'
+               WHEN stock_quantity BETWEEN  10 AND 20 THEN 'Restock Soon'
+               ELSE 'IN stock'
+               END AS stock_stock
+    FROM products
+), counting AS (SELECT *, count(stock_stock ) FROM stock_count WHERE stock_stock = 'IN stock' GROUP BY id, product_name, stock_count.stock_stock)
+SELECT * FROM counting;
+
+
+UPDATE products  set stock_quantity = 19
+WHERE id = 1;
+
+WITH stock_status AS (
+    SELECT *,
+           CASE
+               WHEN stock_quantity < 1 THEN 'Restock'
+               WHEN stock_quantity BETWEEN 10 AND 20 THEN 'Restock Soon'
+               ELSE 'In Stock'
+               END AS status
+    FROM products
+)
+SELECT status, COUNT(*) AS count_per_status
+FROM stock_status
+GROUP BY status;
+
+
+
+
+CREATE VIEW stock_status_view AS
+SELECT *,
+       CASE
+           WHEN stock_quantity < 1 THEN 'Restock'
+           WHEN stock_quantity BETWEEN 10 AND 20 THEN 'Restock Soon'
+           ELSE 'In Stock'
+           END AS status
+FROM products;
+
+SELECT * FROM stock_status_view;
+
+
 
 CREATE OR REPLACE FUNCTION sell_product(p_product_id INT, p_qty INT)
     RETURNS BOOLEAN AS $$
@@ -123,7 +186,7 @@ UPDATE products SET stock_quantity = 1 WHERE id = 1;
 
 
 BEGIN ;
-SELECT * FROM orders WHERE customer_id = 1
+SELECT * FROM orders WHERE customer_id = 1;
 COMMIT;
 
 
