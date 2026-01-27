@@ -66,6 +66,7 @@ WHERE order_date = '2018-11-2';
 -- Execution Time: 433.072 ms
 
 
+
 CREATE index idx_orders_order_date ON
     orders( order_date);
 DROP index idx_orders_order_date;
