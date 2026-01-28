@@ -1,3 +1,192 @@
+CREATE OR REPLACE FUNCTION place_order(
+    p_customer_id INT,
+    p_product_id INT,
+    p_qty INT,
+    p_total NUMERIC
+)
+    RETURNS TABLE (
+                      order_id INT,
+                      customer_id INT,
+                      order_date DATE,
+                      total_amount NUMERIC,
+                      status VARCHAR
+                  )
+AS $$
+BEGIN
+    -- 1️⃣ Update stock (fully qualified)
+    UPDATE products p
+    SET stock_quantity = p.stock_quantity - p_qty
+    WHERE p.id = p_product_id
+      AND p.stock_quantity >= p_qty;
+    --- If the quanity is low return 'Not Enough Stock '
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Not enough stock';
+    END IF;
+
+    -- 2️⃣ Insert order and return it
+    RETURN QUERY
+        INSERT INTO orders (customer_id, order_date, total_amount, status)
+            VALUES (p_customer_id, CURRENT_DATE, p_total, 'Processing')
+            RETURNING orders.id, orders.customer_id, orders.order_date, orders.total_amount, orders.status;
+
+END;
+$$ LANGUAGE plpgsql;
+
+
+DROP FUNCTION place_order(p_customer_id INT, p_product_id INT, p_qty INT, p_total NUMERIC);
+
+
+
+SELECT place_order(2, 1, 1, 923);
+
+-- Seq Scan on orders  (cost=0.00..34707.20 rows=2000020 width=27) (actual time=0.463..1055.009 rows=2000045 loops=1)
+-- Planning Time: 4.244 ms
+-- Execution Time: 1154.217 ms
+
+-- Scanning two Million Rows
+
+EXPLAIN ANALYSE
+SELECT * FROM orders;
+
+
+--- Partitoning Means Creating Chunks of data of the same tabel
+-- Table order_partition_2018 PARTITIONED BY DATE:
+-- Table order_partition_2018
+
+
+-- 1️⃣ Create parent partitioned table first
+CREATE TABLE orders_2018_partition (
+                                       id SERIAL,
+                                       customer_id INTEGER REFERENCES customers(id),
+                                       order_date DATE NOT NULL,
+                                       total_amount DECIMAL(10,2),
+                                       status VARCHAR(20),
+                                       PRIMARY KEY (id, order_date)  -- include partition column
+) PARTITION BY RANGE (order_date);
+
+CREATE TABLE orders_2019
+    PARTITION OF orders_2018_partition
+        FOR VALUES FROM ('2019-01-01') TO ('2020-01-01');
+
+
+
+-- -- Copying data to partitioned table
+INSERT INTO orders_2018_partition  (id, customer_id, order_date, total_amount, status)
+SELECT id, customer_id, order_date, total_amount, status
+FROM orders
+WHERE order_date >= '2017-01-01' AND order_date < '2020-01-01';
+
+DROP table orders_2018;
+-- 2️⃣ Create partitions
+CREATE TABLE orders_2016
+    PARTITION OF orders_2018_partition
+        FOR VALUES FROM ('2017-01-01') TO ('2018-01-01');
+
+-- 3️⃣ Create indexes on the partition if needed
+CREATE INDEX idx_orders_2018_order_date
+    ON orders_2018 (id, order_date);
+DROP index idx_orders_2018_order_date;
+
+
+EXPLAIN ANALYZE
+SELECT *
+FROM orders
+WHERE id = 418 AND order_date = '2018-01-01';
+
+
+CREATE INDEX  index_orders_status on orders (status);
+DROP index index_orders_status;
+EXPLAIN ANALYZE
+SELECT *
+FROM orders
+WHERE status = 'DElivered';
+
+-- Turning off bitmapscan and Indexscan in general
+-- To Check the exectuion time with or withOut Indexing --
+-- The table
+
+SET enable_indexscan  = 'ON';
+SET enable_bitmapscan = ON;
+SET enable_indexonlyscan = ON;
+
+-- Planning Time: 0.095 ms
+-- Execution Time: 43.548 ms
+
+
+--- Planning Time: 0.073 ms
+-- Execution Time: 0.034 ms
+
+EXPLAIN ANALYSE
+SELECT * from orders_2019
+WHERE id = 481 and status = 'Delivered';
+
+
+EXPLAIN ANALYSE
+SELECT id  FROM orders o
+WHERE id = 2000000;
+
+
+
+
+
+-- Index Scan using find_by_id_king_23 on orders  (cost=0.00..8.02 rows=1 width=27) (actual time=0.052..0.053 rows=1 loops=1)
+--   Index Cond: (id = 4355)
+--   Filter: (EXTRACT(year FROM order_date) = '2018'::numeric)
+-- Planning Time: 0.140 ms
+-- Execution Time: 0.073 ms
+--
+
+
+--- Execution Time: 0.071 ms  BEFORE Indexing
+-- Planning Time: 0.210 ms
+-- Execution Time: 0.051 ms
+
+-- Planning Time: 0.062 ms
+-- Execution Time: 36.835 ms
+
+
+EXPLAIN ANALYSE
+SELECT id, order_date FROM orders_2018
+WHERE order_date >= '2018-11-2';
+-- Seq Scan on orders  (cost=0.00..34707.20 rows=2000020 width=27) (actual time=0.012..399.303 rows=2000045 loops=1)
+-- Planning Time: 0.078 ms
+-- Execution Time: 440.497 ms
+
+-- Planning Time: 0.214 ms
+-- Execution Time: 3.027 ms
+--With Index
+
+-- Planning Time: 0.836 ms
+-- Execution Time: 185.333 ms
+-- Without Indexing
+
+EXPLAIN ANALYSE
+SELECT  id, order_date  FROM orders
+WHERE order_date = '2018-11-2';
+-- Seq Scan on orders  (cost=0.00..39707.25 rows=1698899 width=8) (actual time=0.050..391.905 rows=1694918 loops=1)
+--   Filter: (order_date >= '2018-11-02'::date)
+--   Rows Removed by Filter: 305127
+-- Planning Time: 0.126 ms
+-- Execution Time: 433.072 ms
+
+
+CREATE index idx_orders_order_date ON
+    orders( order_date);
+DROP index idx_orders_order_date;
+
+
+
+--- Execution Time: 0.071 ms  AFTER Indexing
+
+
+
+
+
+
+
+
+
+
 -- 1️⃣ Create parent partitioned table first
 CREATE TABLE orders_2018_partition (
                                        id SERIAL,
@@ -755,6 +944,12 @@ SELECT * FROM products pr
 WHERE o.id IS NULL;
 
 -- 54. Find the most popular product (by quantity sold)
+CREATE INDEX idx_order_items_product_id ON order_items(product_id);
+CREATE INDEX idx_order_items_covering
+    ON order_items(product_id) INCLUDE (unit_price, quantity);
+CREATE INDEX idx_total_sold ON order_items(product_id, unit_price, quantity);
+
+EXPLAIN ANALYSE
 SELECT p.product_name,
        COUNT(p.id) AS count,
        SUM(oi.unit_price * oi.quantity) AS total_sold
@@ -764,7 +959,33 @@ GROUP BY p.product_name
 ORDER BY total_sold DESC
 LIMIT 1;
 
+SELECT p.product_name, oi_stats.count, oi_stats.total_sold
+FROM products p
+         JOIN (
+    SELECT product_id,
+           COUNT(*) AS count,
+           SUM(unit_price * quantity) AS total_sold
+    FROM order_items
+    GROUP BY product_id
+) AS oi_stats ON p.id = oi_stats.product_id
+ORDER BY oi_stats.total_sold DESC
+LIMIT 1;
+EXPLAIN ANALYZE
+SELECT p.product_name, oi_stats.count, oi_stats.total_sold
+FROM products p
+         JOIN (
+    SELECT product_id,
+           COUNT(*) AS count,
+           SUM(unit_price * quantity) AS total_sold
+    FROM order_items
+    GROUP BY product_id
+) AS oi_stats ON p.id = oi_stats.product_id
+ORDER BY oi_stats.total_sold DESC
+LIMIT 1;
+
+
 -- 55. Calculate total sales per product category
+EXPLAIN ANALYSE
 SELECT c.category_name,
        SUM(o.quantity * o.unit_price) AS amount_of_sales
 FROM categories c
