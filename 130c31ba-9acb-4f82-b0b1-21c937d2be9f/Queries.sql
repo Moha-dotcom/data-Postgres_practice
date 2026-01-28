@@ -121,6 +121,7 @@ SELECT * from orders_2019
 WHERE id = 481 and status = 'Delivered';
 
 
+
 EXPLAIN ANALYSE
 SELECT id  FROM orders o
 WHERE id = 2000000;
