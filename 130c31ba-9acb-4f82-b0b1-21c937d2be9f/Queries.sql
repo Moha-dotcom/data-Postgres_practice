@@ -1,3 +1,63 @@
+--- Row Level Locking
+---
+
+BEGIN ;
+SELECT name, balance FROM accounts WHERE name='Alice'
+FOR update;
+
+UPDATE accounts set balance = balance + 500
+WHERE name = 'Alice';
+
+COMMIT;
+
+ROLLBACK ;
+
+
+
+BEGIN;
+UPDATE accounts
+SET balance = balance + 1000
+WHERE name = 'Alice';
+-- waits
+UPDATE accounts
+SET balance = balance - 200
+WHERE name = 'Alice';
+
+COMMIT ;
+
+ROLLBACK ;
+
+BEGIN;
+UPDATE accounts SET balance = balance - 100 WHERE id = 1;
+-- waits
+UPDATE accounts SET balance = balance + 100 WHERE id = 2;
+
+COMMIT ;
+
+
+
+
+
+
+SELECT pg_advisory_unlock(12345);
+
+
+BEGIN;
+LOCK TABLE accounts IN ACCESS EXCLUSIVE MODE;
+
+COMMIT;
+
+ROLLBACK ;
+
+BEGIN;
+SELECT * FROM accounts WHERE id = 1 FOR UPDATE;
+SELECT * FROM accounts WHERE id = 2 FOR UPDATE;
+
+
+
+
+
+
 ---  Example Implementing Serializable  transaction isolation
 -- is the strictest transaction isolation level in SQL.
 -- Ensures transactions behave as if they ran one after the other, even if they run concurrently.
