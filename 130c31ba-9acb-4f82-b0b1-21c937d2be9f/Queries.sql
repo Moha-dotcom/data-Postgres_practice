@@ -1,3 +1,100 @@
+---  Example Implementing Serializable  transaction isolation
+-- is the strictest transaction isolation level in SQL.
+-- Ensures transactions behave as if they ran one after the other, even if they run concurrently.
+CREATE TABLE accounts (
+                          id SERIAL PRIMARY KEY,
+                          name TEXT,
+                          balance NUMERIC  CHECK ( balance >= 0 )
+);
+
+DROP TABLE accounts;
+
+INSERT INTO accounts (name, balance) VALUES
+('Alice', 10000),
+('Bob', 10000);
+
+
+
+--- TX- Transaction 1
+
+BEGIN;
+UPDATE accounts SET balance = balance -  200 WHERE name='Alice';
+
+COMMIT ;
+
+ROLLBACK ;
+
+SELECT accounts.name, accounts.balance FROM  accounts;
+
+-- Problem to demonstrate:
+-- We want to transfer $500 from Alice to Bob,
+-- but concurrently another transaction
+-- might read balances and also transfer money.
+
+BEGIN TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+-- Read Alice's balance
+SELECT balance FROM accounts WHERE name='Alice';
+-- Subtract $500
+UPDATE accounts SET balance = balance + 2900 WHERE name='Alice';
+-- Add $500 to Bob
+UPDATE accounts SET balance = balance + 500 WHERE name='Bob';
+
+SELECT accounts.name, balance FROM accounts;
+ROLLBACK ;
+
+COMMIT;
+
+
+
+
+--- Transaction 2 TX2
+BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+SELECT accounts.name, balance FROM accounts;
+
+BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+\set withdrawalAmount = 500;
+SELECT name, balance FROM accounts WHERE name='Alice';
+
+UPDATE accounts SET balance = balance - :withdrawalAmount
+WHERE name='Alice' AND balance >= :withdrawalAmount;
+-- 1000
+UPDATE accounts SET balance = balance + :withdrawalAmount WHERE name='Bob';
+SELECT accounts.name, balance FROM accounts;
+
+
+COMMIT;
+
+ROLLBACK;
+
+SELECT * FROM accounts;
+
+BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+
+\set withdrawalAmount = 1000;
+SELECT balance FROM accounts WHERE name='Alice';
+-- Subtract $500
+UPDATE accounts SET balance = balance - :withdrawalAmount
+WHERE name='Alice' AND balance >= :withdrawalAmount;
+-- Add $500 to Bob
+UPDATE accounts SET balance = balance + :withdrawalAmount WHERE name='Bob';
+
+
+
+
+COMMIT;
+
+
+
+
+
+
+
+
+
+
+
+
+
 CREATE OR REPLACE FUNCTION place_order(
     p_customer_id INT,
     p_product_id INT,
@@ -125,6 +222,26 @@ WHERE id = 481 and status = 'Delivered';
 EXPLAIN ANALYSE
 SELECT id  FROM orders o
 WHERE id = 2000000;
+
+
+CREATE MATERIALIZED VIEW top_products AS
+SELECT product_id,
+       COUNT(*) AS count,
+       SUM(unit_price * quantity) AS total_sold
+FROM order_items
+GROUP BY product_id;
+
+
+select * from top_products;
+
+REFRESH MATERIALIZED VIEW top_products;
+
+EXPLAIN ANALYSE
+SELECT p.product_name, t.count, t.total_sold
+FROM products p
+         JOIN top_products t ON p.id = t.product_id
+ORDER BY t.total_sold DESC
+LIMIT 1;
 
 
 
